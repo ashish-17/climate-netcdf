@@ -105,8 +105,6 @@ public class App {
 			Index idx = tempData.getIndex();
 			int countyIdx = 0;
 			for (Integer fipsCode : countyFips) {
-				int[] timeData = data.getTimeData(fipsCode);
-				Arrays.sort(timeData);
 				int timeIdx = 0;
 				for (int time : validTimes) {
 					tempData.setDouble(idx.set(timeIdx, countyIdx), data.findData(fipsCode, time).temp);
