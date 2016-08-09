@@ -18,9 +18,11 @@ import com.opencsv.CSVReader;
 
 import ucar.ma2.Array;
 import ucar.ma2.ArrayDouble;
+import ucar.ma2.ArrayString;
 import ucar.ma2.DataType;
 import ucar.ma2.Index;
 import ucar.ma2.InvalidRangeException;
+import ucar.nc2.Attribute;
 import ucar.nc2.Dimension;
 import ucar.nc2.NetcdfFileWriter;
 import ucar.nc2.Variable;
@@ -92,8 +94,24 @@ public class App {
 		Dimension dimTime = writer.addDimension(null, "time", countTimes);
 
 		Variable varTime = writer.addVariable(null, "time", DataType.INT, "time");
+		varTime.addAttribute( new Attribute("long_name", "time"));
+		
 		Variable varCounty = writer.addVariable(null, "county", DataType.INT, "county");
+		varCounty.addAttribute( new Attribute("long_name", "county FIPS"));
+		
 		Variable tas = writer.addVariable(null, "tas", DataType.DOUBLE, "time county");
+		tas.addAttribute( new Attribute("long_name", "tas"));
+		tas.addAttribute( new Attribute("units", "K"));
+		tas.addAttribute( new Attribute("contents", "County level from NCDC sites"));
+		tas.addAttribute( new Attribute("frequency", "daily"));
+		
+		Variable varLat = writer.addVariable(null, "lat", DataType.DOUBLE, "county");
+		varLat.addAttribute( new Attribute("long_name", "county centroid latitude"));
+		varLat.addAttribute( new Attribute("units", "degrees_north"));
+		
+		Variable varLon = writer.addVariable(null, "lon", DataType.DOUBLE, "county");
+		varLon.addAttribute( new Attribute("long_name", "county centroid longitude"));
+		varLon.addAttribute( new Attribute("units", "degrees_east"));
 		
 		// create the file
 		try {
@@ -103,6 +121,16 @@ public class App {
 			
 			ArrayDouble.D2 tempData = new ArrayDouble.D2(dimTime.getLength(), dimCounty.getLength());
 			Index idx = tempData.getIndex();
+			
+			ArrayDouble.D1 latData = new ArrayDouble.D1(dimCounty.getLength());
+			Index latIdx = latData.getIndex();
+			ArrayDouble.D1 lonData = new ArrayDouble.D1(dimCounty.getLength());
+			Index lonIdx = lonData.getIndex();
+			ArrayString.D1 nameData = new ArrayString.D1(dimCounty.getLength());
+			Index nameIdx = nameData.getIndex();
+			ArrayString.D1 stateData = new ArrayString.D1(dimCounty.getLength());
+			Index stateIdx = stateData.getIndex();
+			
 			int countyIdx = 0;
 			for (Integer fipsCode : countyFips) {
 				int timeIdx = 0;
@@ -111,11 +139,21 @@ public class App {
 					timeIdx++;
 				}
 				
+				Row rowData = data.getFirstRow(fipsCode);
+				latData.set(latIdx.set(countyIdx), rowData.lat);
+				lonData.set(latIdx.set(countyIdx), rowData.lon);
+				nameData.set(latIdx.set(countyIdx), rowData.countyName);
+				stateData.set(latIdx.set(countyIdx), rowData.state);
+				
 				countyIdx++;
 			}
 
 		    int[] origin = new int[]{0, 0};
+		    int[] orgin1 = new int[]{0};
 		    writer.write(tas, origin, tempData);
+		    writer.write(varLat, orgin1, latData);
+		    writer.write(varLon, orgin1, lonData);
+		    
 		} catch (IOException e) {
 			System.err.printf("ERROR creating file %s%n%s", filename, e.getMessage());
 		}
@@ -171,6 +209,12 @@ public class App {
 				
 				timeVsCounty.get(r.time).add(r.fips);
 			}
+		}
+		
+		public Row getFirstRow(int fips) {
+			HashMap<Integer, Row> countyData = data.get(fips);
+			Iterator<Row> it = countyData.values().iterator();
+			return it.next();
 		}
 		
 		public int[] getTimeData(Integer fips) {
